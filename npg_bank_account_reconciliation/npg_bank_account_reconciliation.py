@@ -224,8 +224,12 @@ class bank_acc_rec_statement(osv.osv):
             res['amount_in_currency'] = line.amount_currency
 
         return res
-
-    def refresh_record(self, cr, uid, ids, context=None):
+        
+    
+    def refresh_record(self, cr, uid, ids, context=None):     
+        obj_journal = self.pool.get("account.journal")
+        opening_journal_ids = obj_journal.search(cr, uid, [('type','=','situation')], context=context)        
+           
         account_move_line_obj = self.pool["account.move.line"]
         for obj in self.browse(cr, uid, ids, context=context):
             if not obj.account_id:
@@ -236,13 +240,14 @@ class bank_acc_rec_statement(osv.osv):
                 line.move_line_id.id
                 for line in obj.credit_move_line_ids + obj.debit_move_line_ids
                 if line.move_line_id
-            ]
+            ]            
 
             domain = [
                 ('id', 'not in', move_line_ids),
                 ('account_id', '=', obj.account_id.id),
                 ('move_id.state', '=', 'posted'),
                 ('cleared_bank_account', '=', False),
+                ('journal_id', 'not in', opening_journal_ids)
             ]
 
             # if not keep_previous_uncleared_entries:
@@ -276,7 +281,10 @@ class bank_acc_rec_statement(osv.osv):
                 return False
         return True
 
-    def onchange_account_id(self, cr, uid, ids, account_id, ending_date, suppress_ending_date_filter, keep_previous_uncleared_entries, context=None):
+    def onchange_account_id(self, cr, uid, ids, account_id, ending_date, suppress_ending_date_filter, keep_previous_uncleared_entries, context=None):        
+        obj_journal = self.pool.get("account.journal")
+        opening_journal_ids = obj_journal.search(cr, uid, [('type','=','situation')], context=context)
+        
         account_move_line_obj = self.pool.get('account.move.line')
         statement_line_obj = self.pool.get('bank.acc.rec.statement.line')
         val = {'value': {'credit_move_line_ids': [], 'debit_move_line_ids': []}}
@@ -292,7 +300,12 @@ class bank_acc_rec_statement(osv.osv):
             #2. Journal items which are not assigned to previous bank statements
             #3. Date less than or equal to ending date provided the 'Suppress Ending Date Filter' is not checked
             # get previous uncleared entries
-            domain = [('account_id', '=', account_id), ('move_id.state', '=', 'posted'), ('cleared_bank_account', '=', False)]
+            domain = [
+                      ('account_id', '=', account_id), 
+                      ('move_id.state', '=', 'posted'), 
+                      ('cleared_bank_account', '=', False), 
+                      ('journal_id', 'not in', opening_journal_ids)]
+            
             if not keep_previous_uncleared_entries:
                 domain += [('draft_assigned_to_statement', '=', False)]
 
