@@ -382,6 +382,7 @@ class bank_acc_rec_statement(osv.osv):
             ],'State', select=True, readonly=True),
     }
     _defaults = {
+        'keep_previous_uncleared_entries': True,
         'state': 'draft',
         'company_id': lambda self, cr, uid, c: self.pool.get('res.users').browse(cr, uid, uid, c).company_id.id,
         'ending_date': time.strftime('%Y-%m-%d'),
